@@ -59,13 +59,13 @@ app.set('view engine', 'jade');
 // all environments
 app.set('port', process.env.PORT || 3000);
 
-var rootUrl = 'http://localhost:' + app.get('port');
-if (process.env.DEPLOYMENT === 'production') {
-    rootUrl = 'http://ximera.osu.edu';
-} else {
-    // Temporarily use NGROK for the server    
-    rootUrl = 'http://5304979f.ngrok.com';
-}
+var rootUrl = 'http://127.0.0.1:' + app.get('port');
+// if (process.env.DEPLOYMENT === 'production') {
+//     rootUrl = 'http://ximera.osu.edu';
+// } else {
+//     // Temporarily use NGROK for the server
+//     rootUrl = 'http://5304979f.ngrok.com';
+// }
 
 app.use(logger('dev'));
 app.use(favicon(path.join(__dirname, 'public/images/icons/favicon/favicon.ico')));
@@ -139,8 +139,8 @@ mdb.initialize(function (err) {
 
     passport.use(login.localStrategy(rootUrl));
     passport.use(login.googleStrategy(rootUrl));
-    passport.use(login.twitterStrategy(rootUrl));
-    passport.use(login.courseraStrategy(rootUrl));
+    // passport.use(login.twitterStrategy(rootUrl));
+    // passport.use(login.courseraStrategy(rootUrl));
     passport.use(login.ltiStrategy(rootUrl));
     passport.use(login.githubStrategy(rootUrl));
 

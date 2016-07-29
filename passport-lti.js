@@ -17,7 +17,7 @@ LtiStrategy.prototype.authenticate = function (req) {
     // I'm behind nginx so it looks like I'm serving http, but as far as the rest of the world is concerned, it's https
     var protocol = 'https';
 
-    if (req.get('host') == 'localhost:3000') {
+    if (req.get('host') == 'localhost:3000' || req.get('host') == '127.0.0.1:3000') {
         protocol = 'http';
         console.log(protocol);
     }
