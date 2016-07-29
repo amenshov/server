@@ -1,26 +1,28 @@
-var async = require('async')
-  , mdb = require('../mdb')
-  , mongoose = require('mongoose')
-  , _ = require('underscore')
-  , util = require('util')
-  , course = require('./course');
+var async = require('async'),
+    mdb = require('../mdb'),
+    mongoose = require('mongoose'),
+    _ = require('underscore'),
+    util = require('util'),
+    course = require('./course');
 
 // TODO: Better authorization framework?
 
-exports.instructorActivity = function(req, res) {
+exports.instructorActivity = function (req, res) {
     if (req.user.isInstructor) {
         res.locals.instructorApp = true;
+
         return course.activity(req, res);
     }
-    else {
-        res.send(403);
-    }
-}
 
+    res.send(403);
 
-exports.activityAnalytics = function(req, res) {
+    return null;
+};
+
+exports.activityAnalytics = function (req, res) {
     if (!req.user.isInstructor) {
         res.send(403);
+
         return;
     }
 
@@ -28,30 +30,46 @@ exports.activityAnalytics = function(req, res) {
     var locals = {};
     async.series([
         function (callback) {
-            mdb.Activity.findOne({_id: new mongoose.Types.ObjectId(version)}, function (err, activity) {
-                if (err) callback(err);
+            mdb.Activity.findOne({ _id: new mongoose.Types.ObjectId(version) }, function (err, activity) {
+                if (err) {
+                    callback(err);
+                }
+
                 locals.activity = activity;
+
                 callback();
             });
         },
         function (callback) {
-            mdb.CompletionLog.find({activity: new mongoose.Types.ObjectId(version)}, function (err, completionLogs) {
-                if (err) callback(err);
+            mdb.CompletionLog.find({ activity: new mongoose.Types.ObjectId(version) }, function (err, completionLogs) {
+                if (err) {
+                    callback(err);
+                }
+
                 locals.completionLogs = completionLogs;
+
                 callback();
             });
         },
         function (callback) {
-            mdb.AnswerLog.find({activity: new mongoose.Types.ObjectId(version)}, function (err, answerLogs) {
-                if (err) callback(err);
+            mdb.AnswerLog.find({ activity: new mongoose.Types.ObjectId(version) }, function (err, answerLogs) {
+                if (err) {
+                    callback(err);
+                }
+
                 locals.answerLogs = answerLogs;
+
                 callback();
             });
         },
         function (callback) {
-            mdb.ActivityCompletion.find({activitySlug: locals.activity.slug}, function (err, completions) {
-                if (err) callback(err);
+            mdb.ActivityCompletion.find({ activitySlug: locals.activity.slug }, function (err, completions) {
+                if (err) {
+                    callback(err);
+                }
+
                 locals.completions = completions;
+
                 callback();
             });
         },
@@ -62,12 +80,12 @@ exports.activityAnalytics = function(req, res) {
 
             var usersCompleteObj = {};
             var usersPercentDone = {};
-            _.each(locals.completionLogs, function(log) {
+            _.each(locals.completionLogs, function (log) {
                 var userId = log.user.toString();
+
                 if (userId in usersPercentDone) {
                     usersPercentDone[userId] = Math.max(log.percentDone, usersCompleteObj[userId]);
-                }
-                else {
+                } else {
                     usersPercentDone[userId] = log.percentDone;
                 }
 
@@ -86,7 +104,7 @@ exports.activityAnalytics = function(req, res) {
                 averageCompletionPercent: averageCompletionPercent,
                 numberViewing: usersViewing.length,
                 numberComplete: usersComplete.length
-            }
+            };
             callback();
         },
         function (callback) {
@@ -94,8 +112,7 @@ exports.activityAnalytics = function(req, res) {
             _.each(locals.answerLogs, function (answerLog) {
                 if (!(answerLog.questionPartUuid in answerLogsByUuid)) {
                     answerLogsByUuid[answerLog.questionPartUuid] = [answerLog];
-                }
-                else {
+                } else {
                     answerLogsByUuid[answerLog.questionPartUuid].push(answerLog);
                 }
             });
@@ -112,8 +129,7 @@ exports.activityAnalytics = function(req, res) {
                     var userId = answerLog.user.toString();
                     if (userId in answerLogsByUser) {
                         answerLogsByUser[userId].push(answerLog);
-                    }
-                    else {
+                    } else {
                         answerLogsByUser[userId] = [answerLog];
                     }
                 });
@@ -131,7 +147,7 @@ exports.activityAnalytics = function(req, res) {
                         isCorrect = userAnswerLog.correct || isCorrect;
                     });
                     if (isCorrect) {
-                        totalUsersCorrect[0] += 1
+                        totalUsersCorrect[0] += 1;
                         attemptCountUntilCorrectByUser[userId] = attemptCount;
                     }
                 });
@@ -153,18 +169,17 @@ exports.activityAnalytics = function(req, res) {
                     console.log(totalCorrect[0]);
                     totalAttempts[0] += 1;
                     if (!answerLog.correct) {
-                        console.log("Wrong answer");
+                        console.log('Wrong answer');
                         if (!(answerLog.value in wrongAnswerCount)) {
                             wrongAnswerCount[answerLog.value] = 1;
-                        }
-                        else {
+                        } else {
                             wrongAnswerCount[answerLog.value] += 1;
                         }
-                    }
-                    else {
-                        console.log("Right answer");
+                    } else {
+                        console.log('Right answer');
                         totalCorrect[0] += 1;
                     }
+
                     console.log(totalAttempts[0]);
                     console.log(totalCorrect[0]);
                     console.log(util.inspect(wrongAnswerCount));
@@ -192,4 +207,4 @@ exports.activityAnalytics = function(req, res) {
             callback();
         }
     ]);
-}
+};
