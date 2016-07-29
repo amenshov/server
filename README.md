@@ -8,13 +8,9 @@ Setting up a server
 If you want to install it on Windows, set 'Setting up a server on Windows' below.
 
 1. Install `g++`, `nodejs` and `mongodb` on your computer (under Debian, may also need `nodejs-legacy` package)
-2. Run an instance of mongo server:
+ - You can install the latest [nvm](https://github.com/creationix/nvm) and then run `nvm install 6`
+ - Read [here](https://docs.mongodb.com/manual/tutorial/install-mongodb-on-ubuntu/) how to install the latest version of Mongo on Ubuntu
 
-        mongod --dbpath <insert-your-path>
-You may have to make the path. For example,
-
-        mkdir -p /tmp/data/db
-        mongod --dbpath /tmp/data/db
 3. Fetch and unpack the [sample database](https://drive.google.com/file/d/0B-Xh-RAGRDU8WHAxeUJfVGpTSk0/edit?usp=sharing)
 Unpack the tarball:
 
@@ -23,7 +19,7 @@ This creates a directory containing BSON and JSON files
 
 4. Import the database into mongo:
 
-        mongorestore <path-to-db-directory-with-BSON-files>
+        mongorestore -d test <path-to-db-directory-with-BSON-files>
 
 5. Clone the repository:
 
@@ -48,6 +44,10 @@ Note that if you used a different database name, you should set XIMERA_MONGO_DAT
 
         cd <path-to-ximera>
         npm install (you may be required to answer a prompt or two)
+
+Install Gulp by running `npm install -g gulp-cli` and run
+
+        gulp
 You might have to install bower by running the following commands
 
         node ./node_modules/bower/bin/bower install
