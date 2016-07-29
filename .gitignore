@@ -15,6 +15,9 @@ results
 
 *~
 
+*.min.js
+*.map
+
 public/stylesheets/base.css
 
 npm-debug.log
