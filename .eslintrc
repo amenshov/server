@@ -7,7 +7,9 @@
 
   "globals": {
     "window": true,
-    "document": true
+    "document": true,
+    "Desmos": true,
+    "sagecell": true
   },
 
   "rules": {
