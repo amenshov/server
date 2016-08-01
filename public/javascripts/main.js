@@ -52,6 +52,7 @@ MathJax.Hub.Config(
         showMathMenu: false,
         TeX: {
             extensions: ['AMSmath.js', 'AMSsymbols.js', 'noErrors.js', 'noUndefined.js', 'color.js'],
+            equationNumbers: { autoNumber: 'AMS' },
             Macros: {}
         }
     });
