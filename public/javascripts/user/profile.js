@@ -69,8 +69,8 @@ $(document).ready(function () {
     setInterval(updateAllRelativeDates, 60000);
 
     var updateLinkedAccountButtons = function () {
-        $('.linked-account[connected]').switchClass('btn-default', 'btn-danger');
-        $('.linked-account:not([connected])').switchClass('btn-danger', 'btn-default');
+        $('.linked-account[connected]').toggleClass('btn-default', false).toggleClass('btn-danger', true);
+        $('.linked-account:not([connected])').toggleClass('btn-danger', false).toggleClass('btn-default', true);
 
         $('.linked-account[connected] .connect').hide();
         $('.linked-account[connected] .disconnect').show();
