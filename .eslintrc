@@ -5,6 +5,11 @@
     "node": true
   },
 
+  "globals": {
+    "window": true,
+    "document": true
+  },
+
   "rules": {
     "brace-style": [2, "1tbs", { "allowSingleLine": true }],
     "comma-dangle": [2, "never"],
