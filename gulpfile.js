@@ -44,7 +44,9 @@ var options = {
     ],
     extensions: ['.js'],
     debug: !argv.production,
-    cache: {}, packageCache: {}, fullPaths: true // for watchify
+    cache: {},
+    packageCache: {},
+    fullPaths: true // for watchify
 };
 
 var completeOptions = assign({}, watchify.args, options);

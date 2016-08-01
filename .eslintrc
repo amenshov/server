@@ -9,7 +9,8 @@
     "window": true,
     "document": true,
     "Desmos": true,
-    "sagecell": true
+    "sagecell": true,
+    "YT": true
   },
 
   "rules": {

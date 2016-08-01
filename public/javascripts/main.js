@@ -33,29 +33,28 @@ var clock = require('./clock');
 
 var rowclick = require('./rowclick');
 
-MathJax.Hub.Config(
-    {
-        // You might think putput/SVG would be better,
-        // but HTML-CSS is needed in order for the
-        // answer input boxes to appear in the most
-        // appropriate places
-        jax: ['input/TeX', 'output/HTML-CSS'],
-        extensions: ['tex2jax.js', 'MathMenu.js', 'CHTML-preview.js'],
+MathJax.Hub.Config({
+    // You might think putput/SVG would be better,
+    // but HTML-CSS is needed in order for the
+    // answer input boxes to appear in the most
+    // appropriate places
+    jax: ['input/TeX', 'output/HTML-CSS'],
+    extensions: ['tex2jax.js', 'MathMenu.js', 'CHTML-preview.js'],
 
-        'HTML-CSS': {
-            availableFonts: ['TeX'],
-            imageFont: null
-        },
+    'HTML-CSS': {
+        availableFonts: ['TeX'],
+        imageFont: null
+    },
 
-        processEnvironments: true,
-        showProcessingMessages: false,
-        showMathMenu: false,
-        TeX: {
-            extensions: ['AMSmath.js', 'AMSsymbols.js', 'noErrors.js', 'noUndefined.js', 'color.js'],
-            equationNumbers: { autoNumber: 'AMS' },
-            Macros: {}
-        }
-    });
+    processEnvironments: true,
+    showProcessingMessages: false,
+    showMathMenu: false,
+    TeX: {
+        extensions: ['AMSmath.js', 'AMSsymbols.js', 'noErrors.js', 'noUndefined.js', 'color.js'],
+        equationNumbers: { autoNumber: 'AMS' },
+        Macros: {}
+    }
+});
 
 MathJax.Hub.Register.MessageHook('TeX Jax - parse error', function (message) {
     // do something with the error.  message[1] will contain the data about the error.
