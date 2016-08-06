@@ -110,7 +110,7 @@ app.use(function (req, res, next) {
     next();
 });
 
-app.use(require('./branding').middleware);
+app.use(require('./branding').middleware); // ?
 
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: false }));
@@ -137,14 +137,14 @@ mdb.initialize(function (err) {
 
     console.log('Session setup.');
 
-    passport.use(login.localStrategy(rootUrl));
+    //passport.use(login.localStrategy(rootUrl));
     passport.use(login.googleStrategy(rootUrl));
     // passport.use(login.twitterStrategy(rootUrl));
     // passport.use(login.courseraStrategy(rootUrl));
     passport.use(login.ltiStrategy(rootUrl));
     passport.use(login.githubStrategy(rootUrl));
 
-// Only store the user _id in the session
+    // Only store the user _id in the session
     passport.serializeUser(function (user, done) {
         done(null, user._id);
     });
@@ -155,7 +155,7 @@ mdb.initialize(function (err) {
         });
     });
 
-// Middleware for all environments
+    // Middleware for all environments
     function addDatabaseMiddleware(req, res, next) {
         //req.db = db;
 
@@ -170,22 +170,13 @@ mdb.initialize(function (err) {
 
     app.version = require('./package.json').version;
 
-    //app.use(versionator.middleware);
     app.use('/public', express.static(path.join(__dirname, 'public')));
-    app.use('/node_modules', express.static(path.join(__dirname, 'node_modules')));
-
-    //app.locals.versionPath = versionator.versionPath;
-
-    //console.log( versionator.versionPath('/template/test') );
+    app.use('/node_modules', express.static(path.join(__dirname, 'node_modules'))); // ?
 
     app.use(api.authenticateViaHMAC);
     app.use(passport.initialize());
     app.use(passport.session());
 
-    //app.get('/xake', api.authenticateViaHMAC);
-    //app.get('/api/xake', api.xake);
-
-    //app.put( '/activity/:commit/:path(*)', api.authenticateViaHMAC);
     app.put('/activity/:commit/:path(*.png)', api.putFile);
     app.put('/activity/:commit/:path(*.css)', api.putFile);
     app.put('/activity/:commit/:path(*.js)', api.putFile);
@@ -201,9 +192,6 @@ mdb.initialize(function (err) {
     app.put('/repos/:owner/:repo/git/commits/:sha', api.putCommit);
 
     app.put('/commits/:sha', api.putBareCommit);
-
-    //app.put( '/activity/:commit/:path(*.tex)', api.authenticateViaHMAC);
-    //app.put( '/activity/:commit/:path(*.tex)', api.putTex );
 
     app.use(login.guestUserMiddleware);
     app.use(addDatabaseMiddleware);

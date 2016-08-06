@@ -92,6 +92,7 @@ exports.initialize = function initialize(callback) {
         {
             capped: 1024 * 1024
         });
+
     exports.ServerEvent = mongoose.model('ServerEvent', ServerEventSchema);
 
     // 128 megabytes of compile logs

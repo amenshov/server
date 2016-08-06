@@ -205,64 +205,66 @@ exports.get = function (req, res) {
     }
 
     mdb.User.findOne({ _id: new mongo.ObjectID(id) }, function (err, document) {
-        if (document) {
-            var viewerPermission = hasPermissionToView(req.user, document);
-            if (!viewerPermission) {
-                res.status(500).send('No permission to access other users.');
-
-                return;
-            } else {
-                // Add one view to the count of profileViews
-                mdb.User.update({ _id: new mongo.ObjectID(id) },
-                    { $inc: { profileViews: 1 } });
-
-                if (document.email) {
-                    document.gravatar = crypto.createHash('md5').update(validator.normalizeEmail(document.email)).digest('hex');
-                }
-
-                if (document.birthday) {
-                    document.formattedBirthday = moment(new Date(document.birthday)).format('MMMM D, YYYY');
-                }
-
-                if (req.user._id.equals(document._id)) {
-                    document.pronouned = 'me';
-                } else {
-                    document.pronouned = document.name;
-                }
-
-                if (!hasPermissionToEdit(req.user, document)) {
-                    document.googleOpenId = undefined;
-                    document.courseraOAuthId = undefined;
-                    document.githubId = undefined;
-                    document.twitterOAuthId = undefined;
-                    document.apiKey = '';
-                    document.apiSecret = '';
-                    document.password = '';
-                }
-
-                res.format({
-                    html: function () {
-                        remember(req);
-
-                        res.render('user/profile', {
-                            userId: req.params.id,
-                            user: req.user,
-                            script: 'user/profile',
-                            person: document,
-                            whyVisible: 'Visible to you because ' + viewerPermission,
-                            editable: hasPermissionToEdit(req.user, document),
-                            title: 'Profile'
-                        });
-                    },
-
-                    json: function () {
-                        res.json(document);
-                    }
-                });
-            }
-        } else {
+        if (!document) {
             res.status(404).json({});
+
+            return;
         }
+
+        var viewerPermission = hasPermissionToView(req.user, document);
+
+        if (!viewerPermission) {
+            res.status(500).send('No permission to access other users.');
+
+            return;
+        }
+
+        // Add one view to the count of profileViews
+        mdb.User.update({ _id: new mongo.ObjectID(id) }, { $inc: { profileViews: 1 } });
+
+        if (document.email) {
+            document.gravatar = crypto.createHash('md5').update(validator.normalizeEmail(document.email)).digest('hex');
+        }
+
+        if (document.birthday) {
+            document.formattedBirthday = moment(new Date(document.birthday)).format('MMMM D, YYYY');
+        }
+
+        if (req.user._id.equals(document._id)) {
+            document.pronouned = 'me';
+        } else {
+            document.pronouned = document.name;
+        }
+
+        if (!hasPermissionToEdit(req.user, document)) {
+            document.googleOpenId = undefined;
+            document.courseraOAuthId = undefined;
+            document.githubId = undefined;
+            document.twitterOAuthId = undefined;
+            document.apiKey = '';
+            document.apiSecret = '';
+            document.password = '';
+        }
+
+        res.format({
+            html: function () {
+                remember(req);
+
+                res.render('user/profile', {
+                    userId: req.params.id,
+                    user: req.user,
+                    script: 'user/profile',
+                    person: document,
+                    whyVisible: 'Visible to you because ' + viewerPermission,
+                    editable: hasPermissionToEdit(req.user, document),
+                    title: 'Profile'
+                });
+            },
+
+            json: function () {
+                res.json(document);
+            }
+        });
     });
 };
 
