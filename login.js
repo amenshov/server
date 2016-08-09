@@ -6,7 +6,9 @@ var GoogleStrategy = require('passport-google-openidconnect').Strategy,
     OAuth2Strategy = require('passport-oauth2').Strategy,
     async = require('async'),
     mdb = require('./mdb'),
-    GithubApi = require('github');
+    GithubApi = require('github'),
+    validator = require('validator'),
+    _ = require('underscore');
 
 module.exports.githubStrategy = function (rootUrl) {
     return new OAuth2Strategy({
@@ -14,22 +16,20 @@ module.exports.githubStrategy = function (rootUrl) {
         tokenURL: 'https://github.com/login/oauth/access_token',
         clientID: process.env.GITHUB_CLIENT_ID,
         clientSecret: process.env.GITHUB_CLIENT_SECRET,
-        scope: 'repo:status,public_repo,repo_deployment,write:repo_hook',
+        scope: 'user,repo', // https://developer.github.com/v3/oauth/#scopes
         callbackURL: rootUrl + '/auth/github/callback',
         passReqToCallback: true
     }, function (req, accessToken, refreshToken, profile, done) {
         // Load the github user id
         var github = new GithubApi({ version: '3.0.0' });
+
         github.authenticate({
             type: 'oauth',
             token: accessToken
         });
 
-        github.user.get({}, function (err, user) {
-            // TODO: save the entire user object here?
-
-            // Login using the github user id
-            addUserAccount(req, 'githubId', user.id, null, null, null, function () {
+        github.users.get({}, function (err, user) {
+            addUserAccount(req, 'githubId', user.id, user.name, '', null, function () {
                 // Save the github access token
                 req.user.githubAccessToken = accessToken;
                 req.user.save(done);
@@ -60,9 +60,7 @@ module.exports.googleStrategy = function (rootUrl) {
         scope: 'email',
         passReqToCallback: true
     }, function (req, iss, sub, profile, accessToken, refreshToken, done) {
-        console.log('google profile = ', profile);
-        addUserAccount(req, 'googleOpenId', profile.id, profile.displayName, null, null, done);
-        console.log('user = ' + JSON.stringify(req.user));
+        addUserAccount(req, 'googleOpenId', profile.id, profile.displayName, profile._json.email, null, done);
     });
 };
 
@@ -108,98 +106,119 @@ module.exports.ltiStrategy = function (rootUrl) {
         consumerKey: process.env.LTI_KEY,
         consumerSecret: process.env.LTI_SECRET
     }, function (req, identifier, profile, done) {
-        var displayName = 'Remote User';
+        var displayName = 'Remote User',
+            email = profile.lis_person_contact_email_primary || '';
 
-        if ('lis_person_name_full' in profile) {
+        if (!_.isEmpty(profile.lis_person_name_full) && profile.lis_person_name_full != email) {
             displayName = profile.lis_person_name_full;
         }
 
-        var email = '';
+        var course = profile.custom_ximera; // custom parameter from Canvas
 
-        if ('lis_person_contact_email_primary' in profile) {
-            email = profile.lis_person_contact_email_primary;
-        }
-
-        addUserAccount(req, 'ltiId', identifier, displayName, email, profile.custom_ximera, done);
+        addUserAccount(req, 'ltiId', identifier, displayName, email, course, done);
     });
 };
 
-// Add guest users account if not logged in.
-// TODO: Clean these out occasionally.
-module.exports.guestUserMiddleware = function (req, res, next) {
-    if (!req.user) {
-        if (!req.session.guestUserId) {
-            var userAgent = req.headers['user-agent'];
-            var remoteAddress = req.headers['x-forwarded-for'] || req.connection.remoteAddress || req.socket.remoteAddress || req.connection.socket.remoteAddress;
+// Redirect anonymous users to login page
+module.exports.authMiddleware = function (req, res, next) {
+    var anonymousPaths = [
+        '/login',
+        '/auth/google',
+        '/auth/google/callback',
+        '/auth/github',
+        '/auth/github/callback',
+        '/lti'
+    ];
 
-            req.user = new mdb.User({
-                isGuest: true,
-                name: 'Guest User',
-                userAgent: userAgent,
-                remoteAddress: remoteAddress
-            });
-            req.session.guestUserId = req.user._id;
-            req.user.save(next);
-        } else {
-            mdb.User.findOne({ _id: req.session.guestUserId }, function (err, user) {
-                if (err) {
-                    next(err);
-                } else if (user) {
-                    req.user = user;
-                    next();
-                } else {
-                    console.log(req.session.guestUserId);
-                    req.session.guestUserId = null;
-                    next('Unable to find guest user.');
-                }
-            });
-        }
-    } else {
-        req.session.guestUserId = null;
-        next();
+    var allowAnonymous = ('/' == req.originalUrl) || _.some(anonymousPaths, function (url) {
+        return req.originalUrl.startsWith(url);
+    });
+
+    if (!(req.user || allowAnonymous)) {
+        res.redirect('/login');
+
+        return;
     }
+
+    next();
 };
+
+module.exports.addUserInfoMiddleware = function (req, res, next) {
+    res.locals.user = req.user;
+    next();
+};
+
+module.exports.login = function (req, res) {
+    if (!req.user) {
+        res.render('login');
+
+        return;
+    }
+
+    res.redirect('/just-logged-in');
+};
+
+function updateUser(user, authField, authId, name, email, course) {
+    user[authField] = authId;
+
+    if (_.isEmpty(user.name)) {
+        user.name = name;
+    }
+
+    if (_.isEmpty(user.email)) {
+        user.email = email;
+    }
+
+    if (!_.isEmpty(course)) {
+        user.course = course;
+    }
+}
 
 function addUserAccount(req, authField, authId, name, email, course, done) {
     var searchFields = {};
+
     searchFields[authField] = authId;
 
-    if (req.user.isGuest) {
-        // Save this to the users collection if we haven't already
-        mdb.User.findOneAndUpdate(searchFields, {
-            name: name,
-            email: email,
-            course: course
-        }, {
-            new: true
-        }, function (err, user) {
+    email = validator.normalizeEmail(email, {
+        lowercase: true,
+        remove_dots: false,
+        remove_extension: false
+    });
+
+    if (!req.user) { // New user
+        mdb.User.findOne(searchFields, function (err, user) {
             if (err) {
                 done(err, null);
+
+                return;
+            }
+
+            if (!user) {
+                req.user = new mdb.User({
+                    name: name,
+                    email: email,
+                    course: course
+                });
+
+                req.user[authField] = authId;
+
+                req.user.save(function (err) {
+                    done(err, req.user);
+                });
             } else {
-                if (!user) {
-                    // New user, modify current user account instead.
-                    req.user.name = name;
-                    req.user.email = email;
-                    req.user.course = course;
-                    req.user[authField] = authId;
-                    req.user.isGuest = false;
-                    req.user.save(function (err) {
-                        done(err, req.user);
-                    });
-                } else {
-                    done(null, user);
-                }
+                req.user = user;
+
+                updateUser(req.user, authField, authId, name, email, course);
+
+                req.user.save(function (err) {
+                    done(err, req.user);
+                });
             }
         });
-    } else {
-        // Add account to existing user; remove account from other users.
+    } else { // Add account to existing user; remove account from other users.
+        if (req.user[authField] == authId) { // If user already has account, we're done.
+            updateUser(req.user, authField, authId, name, email, course);
 
-        // If user already has account, we're done.
-        if (req.user[authField] == authId) {
-            req.user.name = name;
-            req.user.email = email;
-            req.user.course = course;
-            req.user[authField] = authId;
             req.user.save(function (err) {
                 done(err, req.user);
             });
@@ -212,10 +231,8 @@ function addUserAccount(req, authField, authId, name, email, course, done) {
                     if (err) {
                         done(err, null);
                     } else {
-                        req.user.name = name;
-                        req.user.email = email;
-                        req.user.course = course;
-                        req.user[authField] = authId;
+                        updateUser(req.user, authField, authId, name, email, course);
+
                         req.user.save(function (err) {
                             done(err, req.user);
                         });

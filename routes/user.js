@@ -137,15 +137,15 @@ exports.deleteLinkedAccount = function (req, res, account) {
         return;
     }
 
-    var accountHash = {};
-
-    var present = { $exists: true };
-    var otherAccounts = {
-        googleOpenId: present,
-        twitterOAuthId: present,
-        courseraOAuthId: present,
-        githubId: present
-    };
+    var accountHash = {},
+        present = { $exists: true },
+        otherAccounts = {
+            ltiId: present,
+            googleOpenId: present,
+            twitterOAuthId: present,
+            courseraOAuthId: present,
+            githubId: present
+        };
 
     if (account == 'google') {
         accountHash['googleOpenId'] = '';
@@ -164,6 +164,7 @@ exports.deleteLinkedAccount = function (req, res, account) {
 
     if (account == 'github') {
         accountHash['githubId'] = '';
+        accountHash['githubAccessToken'] = '';
         delete otherAccounts['githubId'];
     }
 
@@ -179,30 +180,25 @@ exports.deleteLinkedAccount = function (req, res, account) {
     mdb.User.update({
         _id: new mongo.ObjectID(id),
         $or: otherAccounts
-    },
-        { $unset: accountHash },
-        {},
-        function (err, result, status) {
-            if (err) {
-                res.status(500).send('Unknown error.');
+    }, {
+        $unset: accountHash
+    }, {}, function (err, result, status) {
+        if (err) {
+            res.status(500).send('Unknown error.');
+        } else {
+            if (result.n <= 0) {
+                res.status(404).send('No other account available; you cannot delete the only linked account.');
             } else {
-                if (result.n <= 0) {
-                    res.status(404).send('No other account available; you cannot delete the only linked account.');
-                } else {
-                    res.status(200).send('Successfully removed ' + account);
-                }
+                res.status(200).send('Successfully removed ' + account);
             }
-        });
+        }
+    });
 
     return;
 };
 
 exports.get = function (req, res) {
     var id = req.params.id;
-
-    if (!req.user) {
-        res.send(401);
-    }
 
     mdb.User.findOne({ _id: new mongo.ObjectID(id) }, function (err, document) {
         if (!document) {
@@ -223,7 +219,7 @@ exports.get = function (req, res) {
         mdb.User.update({ _id: new mongo.ObjectID(id) }, { $inc: { profileViews: 1 } });
 
         if (document.email) {
-            document.gravatar = crypto.createHash('md5').update(validator.normalizeEmail(document.email)).digest('hex');
+            document.gravatar = crypto.createHash('md5').update(document.email).digest('hex');
         }
 
         if (document.birthday) {
@@ -271,50 +267,46 @@ exports.get = function (req, res) {
 exports.edit = function (req, res) {
     var id = req.params.id;
 
-    if (!req.user) {
-        res.send(401);
-    }
-
     mdb.User.findOne({ _id: new mongo.ObjectID(id) }, function (err, document) {
-        if (document) {
-            if (!hasPermissionToEdit(req.user, document)) {
-                res.status(500).send('No permission to edit that user.');
-
-                return;
-            } else {
-                if (document.email) {
-                    document.gravatar = crypto.createHash('md5').update(validator.normalizeEmail(document.email)).digest('hex');
-                }
-
-                if (req.user._id.equals(document._id)) {
-                    document.pronouned = 'me';
-                } else {
-                    document.pronouned = document.name;
-                }
-
-                if (document.birthday) {
-                    document.formattedBirthday = moment(new Date(document.birthday)).format('MMMM D, YYYY');
-                }
-
-                res.format({
-                    html: function () {
-                        remember(req);
-                        console.log(document);
-                        res.render('user/edit', {
-                            userId: req.params.id,
-                            user: req.user,
-                            script: 'user/profile',
-                            person: document,
-                            whyVisible: 'Visible to you because ' + hasPermissionToView(req.user, document),
-                            editable: hasPermissionToEdit(req.user, document),
-                            title: 'Profile'
-                        });
-                    }
-                });
-            }
-        } else {
+        if (!document) {
             res.status(404).json({});
         }
+
+        if (!hasPermissionToEdit(req.user, document)) {
+            res.status(500).send('No permission to edit that user.');
+
+            return;
+        }
+
+        if (document.email) {
+            document.gravatar = crypto.createHash('md5').update(document.email).digest('hex');
+        }
+
+        if (req.user._id.equals(document._id)) {
+            document.pronouned = 'me';
+        } else {
+            document.pronouned = document.name;
+        }
+
+        if (document.birthday) {
+            document.formattedBirthday = moment(new Date(document.birthday)).format('MMMM D, YYYY');
+        }
+
+        res.format({
+            html: function () {
+                remember(req);
+                console.log(document);
+                res.render('user/edit', {
+                    userId: req.params.id,
+                    user: req.user,
+                    script: 'user/profile',
+                    person: document,
+                    whyVisible: 'Visible to you because ' + hasPermissionToView(req.user, document),
+                    editable: hasPermissionToEdit(req.user, document),
+                    title: 'Profile'
+                });
+            }
+        });
     });
 };
 
@@ -323,118 +315,125 @@ exports.update = function (req, res) {
 
     if (!req.user) {
         res.send(401);
+
+        return;
     }
 
     mdb.User.findOne({ _id: new mongo.ObjectID(id) }, function (err, document) {
-        if (document) {
-            if (!hasPermissionToEdit(req.user, document)) {
-                res.status(500).send('No permission to access other users.');
-
-                return;
-            } else {
-                if (req.user._id.toString() == id) {
-                    document.pronouned = 'me';
-                } else {
-                    document.pronouned = document.name;
-                }
-
-                var hash = {};
-
-                if (req.body.displayName) {
-                    document.displayName = hash.displayName = validator.toString(req.body.displayName);
-                } else {
-                    document.displayName = hash.displayName = '';
-                }
-
-                if (req.body.visibility) {
-                    if (validator.isIn(req.body.visibility, ['none', 'users', 'everyone'])) {
-                        document.visibility = hash.visibility = req.body.visibility;
-                    }
-                }
-
-                if ((req.body.email) && (validator.isEmail(req.body.email))) {
-                    document.email = hash.email = validator.normalizeEmail(req.body.email);
-                } else {
-                    document.email = hash.email = '';
-                }
-
-                if ((req.body.homepage) && (validator.isURL(req.body.homepage))) {
-                    document.website = hash.website = req.body.homepage;
-                } else {
-                    document.website = hash.website = '';
-                }
-
-                if (req.body.birthday) {
-                    document.birthday = hash.birthday = validator.toDate(req.body.birthday);
-                } else {
-                    document.birthday = '';
-                }
-
-                if (document.birthday) {
-                    document.formattedBirthday = moment(new Date(document.birthday)).format('MMMM D, YYYY');
-                }
-
-                if (req.body.biography) {
-                    document.biography = hash.biography = validator.toString(req.body.biography);
-                } else {
-                    document.biography = hash.biography = '';
-                }
-
-                if (req.body.location) {
-                    document.location = hash.location = validator.toString(req.body.location);
-                }
-
-                if (document.email) {
-                    document.gravatar = crypto.createHash('md5').update(validator.normalizeEmail(document.email)).digest('hex');
-                }
-
-                // Only superusers can edit flags
-                if (req.user.superuser) {
-                    if (req.body.isInstructor) {
-                        document.isInstructor = hash.isInstructor = true;
-                    } else {
-                        document.isInstructor = hash.isInstructor = false;
-                    }
-
-                    if (req.body.isAuthor) {
-                        document.isAuthor = hash.isAuthor = true;
-                    } else {
-                        document.isAuthor = hash.isAuthor = false;
-                    }
-
-                    if (req.body.isGuest) {
-                        document.isGuest = hash.isGuest = true;
-                    } else {
-                        document.isGuest = hash.isGuest = false;
-                    }
-
-                    if (req.body.superuser) {
-                        document.superuser = hash.superuser = true;
-                    } else {
-                        document.superuser = hash.superuser = false;
-                    }
-                }
-
-                mdb.User.update({ _id: new mongo.ObjectID(id) }, { $set: hash },
-                    function (err, d) {
-                        if (err) {
-                            res.send(500);
-                        } else {
-                            res.render('user/profile', {
-                                userId: req.params.id,
-                                user: req.user,
-                                updated: true,
-                                script: 'user/profile',
-                                person: document,
-                                editable: true,
-                                title: 'Profile'
-                            });
-                        }
-                    });
-            }
-        } else {
+        if (!document) {
             res.status(404).json({});
+
+            return;
         }
+
+        if (!hasPermissionToEdit(req.user, document)) {
+            res.status(500).send('No permission to access other users.');
+
+            return;
+        }
+
+        if (req.user._id.toString() == id) {
+            document.pronouned = 'me';
+        } else {
+            document.pronouned = document.name;
+        }
+
+        var hash = {};
+
+        if (req.body.displayName) {
+            document.displayName = hash.displayName = validator.toString(req.body.displayName);
+        } else {
+            document.displayName = hash.displayName = '';
+        }
+
+        if (req.body.visibility) {
+            if (validator.isIn(req.body.visibility, ['none', 'users', 'everyone'])) {
+                document.visibility = hash.visibility = req.body.visibility;
+            }
+        }
+
+        if ((req.body.email) && (validator.isEmail(req.body.email))) {
+            document.email = hash.email = validator.normalizeEmail(req.body.email, {
+                lowercase: true,
+                remove_dots: false,
+                remove_extension: false
+            });
+        } else {
+            document.email = hash.email = '';
+        }
+
+        if ((req.body.homepage) && (validator.isURL(req.body.homepage))) {
+            document.website = hash.website = req.body.homepage;
+        } else {
+            document.website = hash.website = '';
+        }
+
+        if (req.body.birthday) {
+            document.birthday = hash.birthday = validator.toDate(req.body.birthday);
+        } else {
+            document.birthday = '';
+        }
+
+        if (document.birthday) {
+            document.formattedBirthday = moment(new Date(document.birthday)).format('MMMM D, YYYY');
+        }
+
+        if (req.body.biography) {
+            document.biography = hash.biography = validator.toString(req.body.biography);
+        } else {
+            document.biography = hash.biography = '';
+        }
+
+        if (req.body.location) {
+            document.location = hash.location = validator.toString(req.body.location);
+        }
+
+        if (document.email) {
+            document.gravatar = crypto.createHash('md5').update(document.email).digest('hex');
+        }
+
+        // Only superusers can edit flags
+        if (req.user.superuser) {
+            if (req.body.isInstructor) {
+                document.isInstructor = hash.isInstructor = true;
+            } else {
+                document.isInstructor = hash.isInstructor = false;
+            }
+
+            if (req.body.isAuthor) {
+                document.isAuthor = hash.isAuthor = true;
+            } else {
+                document.isAuthor = hash.isAuthor = false;
+            }
+
+            if (req.body.isGuest) {
+                document.isGuest = hash.isGuest = true;
+            } else {
+                document.isGuest = hash.isGuest = false;
+            }
+
+            if (req.body.superuser) {
+                document.superuser = hash.superuser = true;
+            } else {
+                document.superuser = hash.superuser = false;
+            }
+        }
+
+        mdb.User.update({ _id: new mongo.ObjectID(id) }, { $set: hash }, function (err, d) {
+            if (err) {
+                res.send(500);
+            } else {
+                res.render('user/profile', {
+                    userId: req.params.id,
+                    user: req.user,
+                    updated: true,
+                    script: 'user/profile',
+                    person: document,
+                    editable: true,
+                    title: 'Profile'
+                });
+            }
+        });
     });
 };
 
@@ -515,7 +514,7 @@ exports.index = function (req, res) {
     var pageSize = 10;
     var pageCount = 1;
 
-    if (!(('user' in req) && (req.user.superuser))) {
+    if (!req.user || !req.user.superuser) {
         res.status(403).render('fail', { title: 'Users not visible', message: 'You are not a superuser.' });
 
         return;
@@ -540,7 +539,7 @@ exports.index = function (req, res) {
         } else {
             users.forEach(function (user) {
                 if (user.email) {
-                    user.gravatar = crypto.createHash('md5').update(validator.normalizeEmail(user.email)).digest('hex');
+                    user.gravatar = crypto.createHash('md5').update(user.email).digest('hex');
                 }
             });
 

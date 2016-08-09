@@ -49,29 +49,16 @@ nav#scroller.navbar.navbar-default.navbar-fixed-top.affix-top(role='navigation')
                                 a(href="/statistics/#{activity.commit}/#{activity.hash}/answers")
                                     | <i class="fa fa-bar-chart"></i> Data dump
 
-                li.dropdown
-                    a.dropdown-toggle(href="#",data-toggle="dropdown")
-                        | <i class="fa fa-bug"></i> Bug
-                        b.caret
-                    ul(id="bug-menu").dropdown-menu
-                        if activity
-                            li
-                                a(href="https://github.com/#{activity.ownerName}/#{activity.repositoryName}/issues/new?title=#{activity.title}&body=%0A%0ASee%20[#{activity.path}.tex](https://github.com/#{activity.ownerName}/#{activity.repositoryName}/blob/#{activity.commit}/#{activity.path}.tex)") Report error in content
-                        li
-                            a(href="https://github.com/kisonecat/ximera/issues/new?title=#{path}") Report error with website
-
                 if activity && activity.commitUpdated
                     li
                         button.btn-margin.navbar-btn.pull-right.btn.btn-sm.btn-warning.pulsate(type="button",data-toggle="modal", data-target="#updateWarningModal")
                             | <i class="fa fa-level-up"></i> Update
+
                 if activity
                     li
                         button.btn-margin.navbar-btn.pull-right.btn.btn-sm.btn-danger(type="button",data-toggle="modal", data-target="#resetWarningModal")
                             | <i class="fa fa-eraser"></i> Erase
-                if (activity) && (activity.ownerName) && (activity.repositoryName) && (activity.branchName) && (activity.path)
-                    li
-                        button.btn-margin.pull-right.btn.navbar-btn.btn-default.btn-sm(role="button",onclick="location.href = \"https://github.com/#{activity.ownerName}/#{activity.repositoryName}/edit/#{activity.branchName}/#{activity.path}.tex\";")
-                            | <i class="fa fa-pencil"></i> Edit
+
                 if activity
                     li
                         button.btn-margin.pull-right.navbar-btn.btn.btn-sm.btn-primary(type="button", id="save-work-button")
@@ -118,16 +105,3 @@ nav#scroller.navbar.navbar-default.navbar-fixed-top.affix-top(role='navigation')
                         ul(id="signin-menu").dropdown-menu
                             li
                                 a(href="/auth/google") <i class='fa fa-google'></i> Sign In with Google
-                            li
-                                a(href="/auth/twitter") <i class='fa fa-twitter'></i> Sign In with Twitter
-                            li
-                                a(href="/auth/github") <i class='fa fa-github'></i> Sign In with GitHub
-                            if deployment != 'production'
-                                li.divider(role="presentation")
-                                li
-                                    form.navbar-form#form-login(action="/auth/local",method="post")
-                                        div.input-group
-                                            input.form-control#username(name="username",type="text",placeholder="Username")
-                                        div.input-group
-                                            input.form-control#password(name="password",type="password")
-                                        button.btn.btn-primary.btn-default#button-login(type="submit") Sign In

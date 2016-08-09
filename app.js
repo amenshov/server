@@ -110,7 +110,7 @@ app.use(function (req, res, next) {
     next();
 });
 
-app.use(require('./branding').middleware); // ?
+app.use(require('./branding').middleware);
 
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: false }));
@@ -155,19 +155,6 @@ mdb.initialize(function (err) {
         });
     });
 
-    // Middleware for all environments
-    function addDatabaseMiddleware(req, res, next) {
-        //req.db = db;
-
-        if ('user' in req) {
-            res.locals.user = req.user;
-        } else {
-            res.locals.user = req.user = {};
-        }
-
-        next();
-    }
-
     app.version = require('./package.json').version;
 
     app.use('/public', express.static(path.join(__dirname, 'public')));
@@ -193,8 +180,8 @@ mdb.initialize(function (err) {
 
     app.put('/commits/:sha', api.putBareCommit);
 
-    app.use(login.guestUserMiddleware);
-    app.use(addDatabaseMiddleware);
+    app.use(login.authMiddleware);
+    app.use(login.addUserInfoMiddleware);
 
     // Middleware for development only
     if ('development' == app.get('env')) {
@@ -202,6 +189,8 @@ mdb.initialize(function (err) {
     }
 
     // Setup routes.
+
+    app.get('/login', login.login);
 
     // TODO: Move to separate file.
     app.get('/users/xarma', score.getXarma);
@@ -330,13 +319,13 @@ mdb.initialize(function (err) {
     app.get('/instructor/activity-analytics/:id', instructor.activityAnalytics);
 
     // Coursera login.
-    app.get('/auth/coursera',
-        passport.authenticate('oauth'));
-    app.get('/auth/coursera/callback',
-        passport.authenticate('oauth', {
-            successRedirect: '/just-logged-in',
-            failureRedirect: '/auth/coursera'
-        }));
+    // app.get('/auth/coursera',
+    //     passport.authenticate('oauth'));
+    // app.get('/auth/coursera/callback',
+    //     passport.authenticate('oauth', {
+    //         successRedirect: '/just-logged-in',
+    //         failureRedirect: '/auth/coursera'
+    //     }));
 
     // Google login.
     app.get('/auth/google', passport.authenticate('google-openidconnect'));
@@ -347,21 +336,21 @@ mdb.initialize(function (err) {
         }));
 
     // Permit local logins when on a test machine
-    if (app.locals.deployment != 'production') {
-        app.post('/auth/local',
-            passport.authenticate('local', { failureRedirect: '/' }),
-            function (req, res) {
-                res.redirect('/');
-            });
-    }
+    // if (app.locals.deployment != 'production') {
+    //     app.post('/auth/local',
+    //         passport.authenticate('local', { failureRedirect: '/' }),
+    //         function (req, res) {
+    //             res.redirect('/');
+    //         });
+    // }
 
     // Twitter login.
-    app.get('/auth/twitter', passport.authenticate('twitter'));
-    app.get('/auth/twitter/callback',
-        passport.authenticate('twitter', {
-            successRedirect: '/just-logged-in',
-            failureRedirect: '/auth/twitter'
-        }));
+    // app.get('/auth/twitter', passport.authenticate('twitter'));
+    // app.get('/auth/twitter/callback',
+    //     passport.authenticate('twitter', {
+    //         successRedirect: '/just-logged-in',
+    //         failureRedirect: '/auth/twitter'
+    //     }));
 
     // GitHub login.
     app.get('/auth/github', passport.authenticate('oauth2'));
@@ -377,6 +366,7 @@ mdb.initialize(function (err) {
         successRedirect: '/just-logged-in',
         failureRedirect: '/'
     }));
+
     app.get('/logout', function (req, res) {
         req.logout();
         res.redirect('/');
